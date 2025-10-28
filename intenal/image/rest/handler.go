@@ -7,10 +7,11 @@ import (
 	"github.com/wb-go/wbf/zlog"
 	"io"
 	"net/http"
+	"path/filepath"
 )
 
 type Image interface {
-	UploadImage(ctx context.Context, file io.Reader) (string, error)
+	UploadImage(ctx context.Context, file io.Reader, ext string) (string, error)
 }
 
 type Handler struct {
@@ -37,7 +38,8 @@ func (h *Handler) UploadImage(c *ginext.Context) {
 	}
 	defer file.Close()
 
-	ID, err := h.image.UploadImage(c.Request.Context(), file)
+	ext := filepath.Ext(fileHeader.Filename)
+	ID, err := h.image.UploadImage(c.Request.Context(), file, ext)
 	if err != nil {
 		zlog.Logger.Error().
 			Err(err).

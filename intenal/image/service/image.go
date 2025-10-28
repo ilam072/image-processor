@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/ilam072/image-processor/intenal/image/types/domain"
+	"github.com/ilam072/image-processor/intenal/types/domain"
 	"github.com/ilam072/image-processor/pkg/errutils"
 	"io"
 )
@@ -19,15 +19,15 @@ type ImageStorage interface {
 }
 
 type Image struct {
-	repo    ImageRepo
-	storage ImageStorage
+	imageRepo ImageRepo
+	storage   ImageStorage
 }
 
-func (i *Image) UploadImage(ctx context.Context, file io.Reader) (string, error) {
+func (i *Image) UploadImage(ctx context.Context, file io.Reader, ext string) (string, error) {
 	const op = "service.image.Upload"
 
 	ID := uuid.New()
-	name := fmt.Sprintf("original/%s", ID.String())
+	name := fmt.Sprintf("original/%s%s", ID.String(), ext)
 	if err := i.storage.SaveImage(ctx, name, file); err != nil {
 		return "", errutils.Wrap(op, err)
 	}
@@ -37,7 +37,7 @@ func (i *Image) UploadImage(ctx context.Context, file io.Reader) (string, error)
 		Path: name,
 	}
 
-	if err := i.repo.CreateImage(ctx, image); err != nil {
+	if err := i.imageRepo.CreateImage(ctx, image); err != nil {
 		_ = i.storage.DeleteImage(ctx, name)
 		return "", errutils.Wrap(op, err)
 	}
