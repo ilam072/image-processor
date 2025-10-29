@@ -12,8 +12,8 @@ type Storage struct {
 	bucket string
 }
 
-func New(client *minio.Client) *Storage {
-	return &Storage{mc: client}
+func New(client *minio.Client, bucket string) *Storage {
+	return &Storage{mc: client, bucket: bucket}
 }
 
 func (s *Storage) SaveImage(ctx context.Context, name string, file io.Reader) error {
@@ -27,6 +27,17 @@ func (s *Storage) SaveImage(ctx context.Context, name string, file io.Reader) er
 	}
 
 	return nil
+}
+
+func (s *Storage) Load(ctx context.Context, name string) (io.ReadCloser, error) {
+	const op = "filestorage.image.Load"
+
+	img, err := s.mc.GetObject(ctx, s.bucket, name, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, errutils.Wrap(op, err)
+	}
+
+	return img, nil
 }
 
 func (s *Storage) DeleteImage(ctx context.Context, name string) error {
