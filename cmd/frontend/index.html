@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🖼️ Image Processor</title>
+    <style>
+        body {
+            font-family: "Segoe UI", Roboto, Arial, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding: 40px 20px;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .container {
+            background: #fff;
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        input[type="file"], input[type="text"] {
+            margin: 10px 0;
+            padding: 10px;
+            width: 80%;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        button {
+            padding: 10px 18px;
+            background: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+            margin: 4px;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .status {
+            margin-top: 10px;
+            font-weight: 500;
+        }
+
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .loading { color: #007bff; }
+
+        img {
+            max-width: 90%;
+            margin-top: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        img.visible {
+            opacity: 1;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 22px;
+            height: 22px;
+            border: 3px solid rgba(0, 0, 0, 0.2);
+            border-top-color: #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            vertical-align: middle;
+            margin-left: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        hr {
+            margin: 25px 0;
+            border: none;
+            border-top: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+
+<h1>🖼️ Image Processor</h1>
+
+<div class="container">
+    <h2>📤 Upload Image</h2>
+    <input type="file" id="fileInput">
+    <button id="uploadBtn">Upload 🚀</button>
+    <div id="uploadStatus" class="status"></div>
+
+    <hr>
+
+    <h2>⚙️ Process Image</h2>
+    <input type="text" id="imageIdInput" placeholder="Enter image ID">
+    <br>
+    <button onclick="enqueueTask('resize')">🔧 Resize</button>
+    <button onclick="enqueueTask('thumbnail')">🖼️ Thumbnail</button>
+    <button onclick="enqueueTask('watermark')">💧 Watermark</button>
+    <div id="taskStatus" class="status"></div>
+    <img id="resultImage" src="" alt="">
+
+    <hr>
+
+    <h2>🗑️ Delete Image</h2>
+    <input type="text" id="deleteIdInput" placeholder="Enter image ID">
+    <br>
+    <button onclick="deleteImage()">Delete ❌</button>
+    <div id="deleteStatus" class="status"></div>
+</div>
+
+<script>
+    const BASE_URL = 'http://localhost:8080/api';
+
+    document.getElementById('uploadBtn').addEventListener('click', async () => {
+        const fileInput = document.getElementById('fileInput');
+        const uploadStatus = document.getElementById('uploadStatus');
+        uploadStatus.textContent = '';
+        uploadStatus.className = 'status';
+
+        if (!fileInput.files.length) {
+            uploadStatus.textContent = '⚠️ Please select a file first.';
+            uploadStatus.classList.add('error');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+
+        uploadStatus.textContent = '📡 Uploading...';
+        uploadStatus.classList.add('loading');
+        uploadStatus.insertAdjacentHTML('beforeend', '<span class="spinner"></span>');
+
+        try {
+            const res = await fetch(`${BASE_URL}/upload`, { method: 'POST', body: formData });
+            const data = await res.json();
+
+            if (!res.ok || !data.image_id) {
+                throw new Error('Upload failed');
+            }
+
+            document.getElementById('imageIdInput').value = data.image_id;
+            document.getElementById('deleteIdInput').value = data.image_id;
+            uploadStatus.innerHTML = `✅ Uploaded successfully!<br>🆔 Image ID: <b>${data.image_id}</b>`;
+            uploadStatus.className = 'status success';
+        } catch (err) {
+            console.error(err);
+            uploadStatus.textContent = '❌ Upload failed. Try again.';
+            uploadStatus.classList.add('error');
+        }
+    });
+
+    async function enqueueTask(action) {
+        const imageId = document.getElementById('imageIdInput').value;
+        const statusDiv = document.getElementById('taskStatus');
+        const resultImg = document.getElementById('resultImage');
+
+        if (!imageId) {
+            statusDiv.textContent = '⚠️ Please enter image ID.';
+            statusDiv.classList.add('error');
+            return;
+        }
+
+        statusDiv.textContent = `🧠 Sending ${action} task...`;
+        statusDiv.className = 'status loading';
+        resultImg.classList.remove('visible');
+        resultImg.src = '';
+
+        try {
+            const res = await fetch(`${BASE_URL}/image/${imageId}/task/${action}`);
+            const data = await res.json();
+
+            if (res.ok) {
+                statusDiv.textContent = `🕒 Task "${action}" queued! Waiting for result...`;
+                statusDiv.classList.add('loading');
+                pollImage(imageId, action);
+            } else {
+                throw new Error('Task enqueue failed');
+            }
+        } catch (err) {
+            console.error(err);
+            statusDiv.textContent = '❌ Failed to send task.';
+            statusDiv.classList.add('error');
+        }
+    }
+
+    async function pollImage(imageId, action) {
+        const statusDiv = document.getElementById('taskStatus');
+        const resultImg = document.getElementById('resultImage');
+
+        statusDiv.textContent = '⏳ Processing...';
+        statusDiv.className = 'status loading';
+        resultImg.classList.remove('visible');
+        resultImg.src = '';
+
+        const interval = setInterval(async () => {
+            try {
+                const res = await fetch(`${BASE_URL}/image/${imageId}?processed=${action}`);
+
+                if (res.status === 200) {
+                    const blob = await res.blob(); // получаем blob
+                    resultImg.src = URL.createObjectURL(blob);
+                    resultImg.classList.add('visible');
+
+                    statusDiv.textContent = '✅ Processing complete!';
+                    statusDiv.className = 'status success';
+                    clearInterval(interval);
+                } else if (res.status === 202) {
+                    statusDiv.textContent = '⏳ Still processing...';
+                    statusDiv.className = 'status loading';
+                } else if (res.status === 404) {
+                    statusDiv.textContent = '⚠️ Image not found / still processing...';
+                    statusDiv.className = 'status error';
+                } else {
+                    statusDiv.textContent = '⚠️ Unexpected server response';
+                    statusDiv.className = 'status error';
+                }
+            } catch (err) {
+                console.error(err);
+                statusDiv.textContent = '❌ Error while polling.';
+                statusDiv.className = 'status error';
+                clearInterval(interval);
+            }
+        }, 1500);
+    }
+
+    async function deleteImage() {
+        const imageId = document.getElementById('deleteIdInput').value;
+        const deleteStatus = document.getElementById('deleteStatus');
+        deleteStatus.textContent = '';
+        deleteStatus.className = 'status';
+
+        if (!imageId) {
+            deleteStatus.textContent = '⚠️ Please enter image ID.';
+            deleteStatus.classList.add('error');
+            return;
+        }
+
+        deleteStatus.textContent = '🗑️ Deleting...';
+        deleteStatus.classList.add('loading');
+        deleteStatus.insertAdjacentHTML('beforeend', '<span class="spinner"></span>');
+
+        try {
+            const res = await fetch(`${BASE_URL}/image/${imageId}`, { method: 'DELETE' });
+            const data = await res.json();
+
+            if (res.ok) {
+                deleteStatus.textContent = '✅ Image deleted successfully.';
+                deleteStatus.classList.add('success');
+            } else if (data?.payload === 'image not found') {
+                deleteStatus.textContent = '⚠️ Image not found.';
+                deleteStatus.classList.add('error');
+            } else {
+                deleteStatus.textContent = '❌ Failed to delete image.';
+                deleteStatus.classList.add('error');
+            }
+        } catch (err) {
+            console.error(err);
+            deleteStatus.textContent = '❌ Error while deleting.';
+            deleteStatus.classList.add('error');
+        }
+    }
+</script>
+
+</body>
+</html>
