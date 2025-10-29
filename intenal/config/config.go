@@ -10,6 +10,7 @@ type Config struct {
 	DB     DBConfig     `mapstructure:",squash"`
 	Server ServerConfig `mapstructure:",squash"`
 	Minio  MinioConfig  `mapstructure:",squash"`
+	Kafka  KafkaConfig  `mapstructure:",squash"`
 }
 
 type DBConfig struct {
@@ -35,6 +36,12 @@ type MinioConfig struct {
 	RootPassword string `mapstructure:"MINIO_PASSWORD"`    // Пароль для доступа к
 	UseSSL       bool   `mapstructure:"MINIO_USE_SSL"`     // Переменная, отвечающая за
 
+}
+
+type KafkaConfig struct {
+	Brokers []string `mapstructure:"KAFKA_BROKERS"`
+	Topic   string   `mapstructure:"KAFKA_TOPIC"`
+	GroupID string   `mapstructure:"KAFKA_GROUP_ID"`
 }
 
 func MustLoad() *Config {
